@@ -1,26 +1,22 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import axios from "axios";
+import AppShell from "../components/AppShell";
 
 function PrepForm() {
   const [days, setDays] = useState("");
   const [hours, setHours] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const [plan, setPlan] = useState(
-    JSON.parse(localStorage.getItem("prep_plan") || "null"),
-  );
+  const [plan, setPlan] = useState(JSON.parse(localStorage.getItem("prep_plan") || "null"));
+  const [progress, setProgress] = useState(JSON.parse(localStorage.getItem("prep_progress") || "{}"));
+  const [streak, setStreak] = useState(Number.parseInt(localStorage.getItem("streak") || "0", 10));
 
-  const [progress, setProgress] = useState(
-    JSON.parse(localStorage.getItem("prep_progress") || "{}"),
-  );
-
-  const [streak, setStreak] = useState(
-    parseInt(localStorage.getItem("streak") || "0"),
-  );
+  const evaluation = useMemo(() => JSON.parse(localStorage.getItem("evaluation") || "{}"), []);
 
   const generatePlan = async () => {
-    const evaluation = JSON.parse(localStorage.getItem("evaluation") || "{}");
-
     try {
+      setIsGenerating(true);
+
       const res = await axios.post("http://localhost:5000/prep-plan", {
         days,
         hours,
@@ -30,18 +26,17 @@ function PrepForm() {
 
       setPlan(res.data);
       localStorage.setItem("prep_plan", JSON.stringify(res.data));
-
-      // reset progress when new plan generated
       setProgress({});
       localStorage.setItem("prep_progress", "{}");
     } catch {
       alert("Unable to generate preparation plan");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   const toggleTask = (dayIndex, taskIndex) => {
     const key = `${dayIndex}-${taskIndex}`;
-
     const updated = {
       ...progress,
       [key]: !progress[key],
@@ -52,13 +47,8 @@ function PrepForm() {
   };
 
   const calculateProgress = (tasks, dayIndex) => {
-    let done = 0;
-
-    tasks.forEach((_, i) => {
-      if (progress[`${dayIndex}-${i}`]) done++;
-    });
-
-    return Math.round((done / tasks.length) * 100);
+    const done = tasks.filter((_, i) => progress[`${dayIndex}-${i}`]).length;
+    return tasks.length ? Math.round((done / tasks.length) * 100) : 0;
   };
 
   const updateStreak = () => {
@@ -68,88 +58,146 @@ function PrepForm() {
     if (last !== today) {
       const newStreak = streak + 1;
       setStreak(newStreak);
-
-      localStorage.setItem("streak", newStreak);
+      localStorage.setItem("streak", String(newStreak));
       localStorage.setItem("last_completed", today);
     }
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Preparation Plan</h2>
+    <AppShell>
+      <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="panel-strong rounded-[1.8rem] p-6 md:p-7 self-start">
+          <span className="eyebrow">Preparation planner</span>
+          <h1 className="page-heading mt-3">Build a clear study roadmap</h1>
+          <p className="page-subheading">
+            Turn your recent interview feedback into a practical, day-by-day plan with measurable progress.
+          </p>
 
-      {/* 🔥 STREAK DISPLAY */}
-      <h3>🔥 Streak: {streak} days</h3>
+          <div className="mt-8 space-y-4">
+            <div>
+              <label className="field-label">Days available</label>
+              <input
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                placeholder="For example: 7"
+                className="field-input"
+              />
+            </div>
 
-      <input
-        placeholder="Days"
-        value={days}
-        onChange={(e) => setDays(e.target.value)}
-      />
-      <br />
+            <div>
+              <label className="field-label">Hours per day</label>
+              <input
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                placeholder="For example: 2"
+                className="field-input"
+              />
+            </div>
 
-      <input
-        placeholder="Hours per day"
-        value={hours}
-        onChange={(e) => setHours(e.target.value)}
-      />
-      <br />
-      <br />
+            <button type="button" onClick={generatePlan} className="primary-button w-full" disabled={isGenerating}>
+              {isGenerating ? "Generating plan..." : "Generate plan"}
+            </button>
+          </div>
 
-      <button onClick={generatePlan}>Generate Plan</button>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="panel-soft rounded-[1.3rem] p-4">
+              <p className="text-sm muted-copy">Current streak</p>
+              <p className="metric-value mt-2">{streak}</p>
+              <p className="text-sm subtle-copy mt-2">Keep finishing full study days to grow it.</p>
+            </div>
 
-      {/* PLAN DISPLAY */}
-      {plan &&
-        plan.days.map((day, dayIndex) => {
-          const progressPercent = calculateProgress(day.tasks, dayIndex);
-
-          const allDone = day.tasks.every(
-            (_, i) => progress[`${dayIndex}-${i}`],
-          );
-
-          return (
-            <div
-              key={dayIndex}
-              style={{
-                marginTop: "20px",
-                border: "1px solid #ccc",
-                padding: "10px",
-              }}
-            >
-              <h3>Day {day.day}</h3>
-
-              <p>
-                <b>Progress:</b> {progressPercent}%
-              </p>
-
-              {/* TASKS */}
-              {day.tasks.map((task, taskIndex) => (
-                <div key={taskIndex}>
-                  <input
-                    type="checkbox"
-                    checked={progress[`${dayIndex}-${taskIndex}`] || false}
-                    onChange={() => toggleTask(dayIndex, taskIndex)}
-                  />
-                  {task}
-                </div>
-              ))}
-
-              {/* ✅ COMPLETE DAY BUTTON */}
-              {allDone && (
-                <button onClick={updateStreak} style={{ marginTop: "10px" }}>
-                  Mark Day Complete ✅
-                </button>
-              )}
-
-              {/* ASSESSMENT */}
-              <div style={{ marginTop: "10px" }}>
-                <b>Assessment:</b>
-                <p>{day.assessment}</p>
+            <div className="panel-soft rounded-[1.3rem] p-4">
+              <p className="text-sm muted-copy">Focus areas</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(evaluation.weaknesses || []).length ? (
+                  evaluation.weaknesses.map((item) => (
+                    <span
+                      key={item}
+                      className="tag text-white"
+                      style={{ background: "linear-gradient(135deg, #fb7185, #dc2626)" }}
+                    >
+                      {item}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm subtle-copy">Complete an interview report to personalize the plan.</span>
+                )}
               </div>
             </div>
-          );
-        })}
-    </div>
+          </div>
+        </aside>
+
+        <main className="space-y-4">
+          {plan?.days?.length ? (
+            plan.days.map((day, dayIndex) => {
+              const progressPercent = calculateProgress(day.tasks, dayIndex);
+              const allDone = day.tasks.every((_, i) => progress[`${dayIndex}-${i}`]);
+
+              return (
+                <section key={dayIndex} className="panel rounded-[1.7rem] p-5 md:p-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-semibold">Day {day.day}</h2>
+                      <p className="mt-2 text-sm muted-copy">Assessment focus: {day.assessment}</p>
+                    </div>
+                    <div className="min-w-[180px] panel-soft rounded-[1.2rem] p-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="muted-copy">Completion</span>
+                        <span className="font-semibold">{progressPercent}%</span>
+                      </div>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(118,140,196,0.16)]">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${progressPercent}%`,
+                            background: "linear-gradient(135deg, #72a1ff, #315ef9)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-3">
+                    {day.tasks.map((task, taskIndex) => {
+                      const checked = progress[`${dayIndex}-${taskIndex}`] || false;
+
+                      return (
+                        <label
+                          key={taskIndex}
+                          className="panel-soft rounded-[1.2rem] p-4 flex items-start gap-3 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleTask(dayIndex, taskIndex)}
+                            className="mt-1 h-4 w-4 accent-blue-500"
+                          />
+                          <span className={`text-sm leading-6 ${checked ? "line-through subtle-copy" : ""}`}>
+                            {task}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {allDone ? (
+                    <button type="button" onClick={updateStreak} className="primary-button mt-5">
+                      Mark day complete
+                    </button>
+                  ) : null}
+                </section>
+              );
+            })
+          ) : (
+            <section className="panel rounded-[1.8rem] p-8">
+              <div className="empty-state py-14">
+                Generate a preparation plan to see your daily checklist and progress tracking.
+              </div>
+            </section>
+          )}
+        </main>
+      </div>
+    </AppShell>
   );
 }
 

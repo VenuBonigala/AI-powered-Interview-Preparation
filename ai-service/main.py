@@ -226,7 +226,14 @@ Return STRICT JSON only:
   ],
   "strengths": ["point1", "point2"],
   "weaknesses": ["point1", "point2"],
-  "improvements": ["point1", "point2"]
+  "improvements": ["point1", "point2"],
+  "skills": {{
+    "Java": 6,
+    "Python": 7,
+    "DSA": 5,
+    "React": 6,
+    "LLM": 7
+  }}
 }}
 """
 
