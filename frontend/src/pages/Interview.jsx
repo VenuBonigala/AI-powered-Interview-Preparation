@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import { apiUrl } from "../config";
 
 function Interview() {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ function Interview() {
       let idealAnswer = "";
 
       try {
-        const res = await fetch("http://localhost:5000/ideal-answer", {
+        const res = await fetch(apiUrl("/ideal-answer"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

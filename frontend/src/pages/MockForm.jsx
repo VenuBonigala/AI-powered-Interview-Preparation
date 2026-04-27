@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import AppShell from "../components/AppShell";
+import { apiUrl } from "../config";
 
 function MockForm() {
   const [level, setLevel] = useState("Easy");
@@ -23,9 +24,9 @@ function MockForm() {
       const formData = new FormData();
       formData.append("file", file);
 
-      await axios.post("http://localhost:5000/upload-jd", formData);
+      await axios.post(apiUrl("/upload-jd"), formData);
 
-      const res = await axios.post("http://localhost:5000/generate-questions", {
+      const res = await axios.post(apiUrl("/generate-questions"), {
         level,
         duration,
       });

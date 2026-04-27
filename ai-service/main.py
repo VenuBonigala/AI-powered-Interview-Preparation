@@ -11,9 +11,13 @@ import numpy as np
 
 load_dotenv()
 
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b:free")
+
 client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENAI_API_KEY")
+    base_url=OPENAI_BASE_URL,
+    api_key=OPENAI_API_KEY
 )
 
 embed_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -123,7 +127,7 @@ Return STRICT JSON ONLY:
 
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-120b:free",
+            model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -171,7 +175,7 @@ def ideal_answer(data: IdealInput):
         prompt = f"Give a strong, ideal interview answer for:\n{data.question}"
 
         response = client.chat.completions.create(
-            model="openai/gpt-oss-120b:free",
+            model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -186,6 +190,7 @@ def evaluate(data: EvaluationInput):
     questions = [q[:200] for q in data.questions]
     answers = [a[:500] for a in data.answers]
     ideals = data.ideals
+    jd_context = retrieve("Extract the main technical skills, frameworks, tools, and concepts from this job description")
 
     qa_pairs = ""
     semantic_scores = []
@@ -208,12 +213,23 @@ Answer: {a}
     prompt = f"""
 You are an expert interviewer.
 
+Job Description Context:
+{jd_context}
+
 Evaluate the following responses briefly.
 
 {qa_pairs}
 
 Also consider these semantic similarity scores (out of 10):
 {semantic_scores}
+
+IMPORTANT SKILL RULES:
+- Infer skills from the job description context and the interview questions/answers.
+- Only include skills that are actually relevant to this interview.
+- Do NOT use placeholder or default skills.
+- Use concise skill names such as "Python", "React", "Prompt Engineering", "RAG", "LLM Evaluation", "FastAPI", "Vector Databases".
+- Return between 3 and 8 skills when possible.
+- Each skill score must be a number from 0 to 10 representing demonstrated performance in that skill area.
 
 Return STRICT JSON only:
 {{
@@ -228,18 +244,15 @@ Return STRICT JSON only:
   "weaknesses": ["point1", "point2"],
   "improvements": ["point1", "point2"],
   "skills": {{
-    "Java": 6,
-    "Python": 7,
-    "DSA": 5,
-    "React": 6,
-    "LLM": 7
+    "Skill Name": 7,
+    "Another Relevant Skill": 6
   }}
 }}
 """
 
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-120b:free",
+            model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -249,7 +262,7 @@ Return STRICT JSON only:
 
     except:
         return {
-            "evaluation": '{"overall_score":"5/10","question_wise":[],"strengths":[],"weaknesses":[],"improvements":[]}'
+            "evaluation": '{"overall_score":"5/10","question_wise":[],"strengths":[],"weaknesses":[],"improvements":[],"skills":{}}'
         }
 
 
@@ -281,7 +294,7 @@ Return ONLY a JSON array like:
 """
 
     response = client.chat.completions.create(
-        model="openai/gpt-oss-120b:free",
+        model=LLM_MODEL,
         messages=[{"role": "user", "content": prompt}]
     )
 

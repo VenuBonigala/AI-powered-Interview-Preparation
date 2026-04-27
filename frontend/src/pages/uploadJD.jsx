@@ -10,19 +10,23 @@ import {
 } from "recharts";
 import ScoreGauge from "../components/ScoreGauge";
 import AppShell from "../components/AppShell";
+import {
+  buildAggregatedSkillData,
+  getAverageInterviewScore,
+  getInterviewHistory,
+  safeJsonParse,
+} from "../utils/interviewHistory";
 
 function UploadJD() {
   const navigate = useNavigate();
 
-  const evaluation = JSON.parse(localStorage.getItem("evaluation") || "{}");
-  const plan = JSON.parse(localStorage.getItem("prep_plan") || "null");
+  const evaluation = safeJsonParse(localStorage.getItem("evaluation"), {}) || {};
+  const plan = safeJsonParse(localStorage.getItem("prep_plan"), null);
   const streak = Number.parseInt(localStorage.getItem("streak") || "0", 10);
 
-  const skills = evaluation.skills || {};
-  const skillData = Object.keys(skills).map((key) => ({
-    skill: key,
-    score: skills[key],
-  }));
+  const interviewHistory = getInterviewHistory();
+  const skillData = buildAggregatedSkillData(8);
+  const averageReadinessScore = getAverageInterviewScore();
 
   const strengths = evaluation.strengths || [];
   const weaknesses = evaluation.weaknesses || [];
@@ -96,8 +100,14 @@ function UploadJD() {
 
             <div className="panel-soft rounded-[1.3rem] p-4">
               <p className="text-sm muted-copy">Readiness score</p>
-              <p className="metric-value mt-2">{evaluation.overall_score || "--"}</p>
-              <p className="text-sm subtle-copy mt-2">Based on your most recent mock interview.</p>
+              <p className="metric-value mt-2">
+                {averageReadinessScore !== null ? `${averageReadinessScore}/10` : evaluation.overall_score || "--"}
+              </p>
+              <p className="text-sm subtle-copy mt-2">
+                {averageReadinessScore !== null
+                  ? `Average across ${interviewHistory.length} interview${interviewHistory.length === 1 ? "" : "s"}.`
+                  : "Complete interviews to compute your average readiness score."}
+              </p>
             </div>
           </aside>
 
@@ -153,10 +163,12 @@ function UploadJD() {
                   <div>
                     <h2 className="text-xl font-semibold">Skills overview</h2>
                     <p className="mt-2 text-sm muted-copy">
-                      A quick look at the capabilities captured from your latest evaluation.
+                      A rolling view of the strongest skills demonstrated across your completed interviews.
                     </p>
                   </div>
-                  <div className="status-pill status-pill--neutral">10 point scale</div>
+                  <div className="status-pill status-pill--neutral">
+                    {interviewHistory.length} interview{interviewHistory.length === 1 ? "" : "s"}
+                  </div>
                 </div>
 
                 <div className="mt-6 h-[320px] w-full">
@@ -173,6 +185,11 @@ function UploadJD() {
                         />
                         <Tooltip
                           cursor={{ fill: "rgba(112, 142, 231, 0.08)" }}
+                          formatter={(value, _name, item) => [
+                            `${value}/10 avg${item?.payload?.appearances > 1 ? ` across ${item.payload.appearances} interviews` : ""}`,
+                            "Score",
+                          ]}
+                          labelFormatter={(label) => `Skill: ${label}`}
                           contentStyle={{
                             borderRadius: "16px",
                             border: "1px solid var(--border)",
@@ -191,7 +208,7 @@ function UploadJD() {
                     </ResponsiveContainer>
                   ) : (
                     <div className="empty-state h-full flex items-center justify-center">
-                      Finish a mock interview to populate this analytics view.
+                      Finish interviews across one or more JDs to build your skills overview here.
                     </div>
                   )}
                 </div>

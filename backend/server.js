@@ -8,6 +8,7 @@ const axios = require("axios");
 require('dotenv').config();
 
 const PORT = process.env.PORT || 5000;
+const AI_SERVICE_BASE_URL = (process.env.AI_SERVICE_BASE_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 const upload = multer({ dest: "uploads/" });
 
 const app = express();
@@ -17,6 +18,11 @@ app.use(express.json());
 app.get("/", (req, res) => {
       res.send("Backend is running");
 });
+
+function aiServiceUrl(path) {
+      const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+      return `${AI_SERVICE_BASE_URL}${normalizedPath}`;
+}
 
 app.post("/upload-jd", upload.single("file"), async (req, res) => {
       try {
@@ -36,7 +42,7 @@ app.post("/upload-jd", upload.single("file"), async (req, res) => {
                   return res.status(400).json({ error: "Unsupported file type" });
             }
 
-            await axios.post("http://127.0.0.1:8000/store-jd", { text });
+            await axios.post(aiServiceUrl("/store-jd"), { text });
 
             res.json({ text });
 
@@ -49,7 +55,7 @@ app.post("/generate-questions", async (req, res) => {
       try {
             const { level, duration } = req.body;
 
-            const response = await axios.post("http://127.0.0.1:8000/generate-questions", {
+            const response = await axios.post(aiServiceUrl("/generate-questions"), {
                   level,
                   duration
             });
@@ -65,7 +71,7 @@ app.post("/ideal-answer", async (req, res) => {
       try {
             const { question } = req.body;
 
-            const response = await axios.post("http://127.0.0.1:8000/ideal-answer", {
+            const response = await axios.post(aiServiceUrl("/ideal-answer"), {
                   question
             });
 
@@ -80,7 +86,7 @@ app.post("/evaluate", async (req, res) => {
       try {
             const { questions, answers, ideals } = req.body;
 
-            const response = await axios.post("http://127.0.0.1:8000/evaluate", {
+            const response = await axios.post(aiServiceUrl("/evaluate"), {
                   questions,
                   answers,
                   ideals
@@ -98,7 +104,7 @@ app.post("/prep-plan", async (req, res) => {
       try {
             const { days, hours, weaknesses, improvements } = req.body;
 
-            const response = await axios.post("http://127.0.0.1:8000/prep-plan", {
+            const response = await axios.post(aiServiceUrl("/prep-plan"), {
                   days,
                   hours,
                   weaknesses,

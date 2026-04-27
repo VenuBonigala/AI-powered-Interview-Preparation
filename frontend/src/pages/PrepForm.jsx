@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import axios from "axios";
 import AppShell from "../components/AppShell";
+import { apiUrl } from "../config";
 
 function PrepForm() {
   const [days, setDays] = useState("");
   const [hours, setHours] = useState("");
+  const [file, setFile] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [plan, setPlan] = useState(JSON.parse(localStorage.getItem("prep_plan") || "null"));
@@ -14,10 +16,20 @@ function PrepForm() {
   const evaluation = useMemo(() => JSON.parse(localStorage.getItem("evaluation") || "{}"), []);
 
   const generatePlan = async () => {
+    if (!file) {
+      alert("Please upload a job description or resume before generating the plan.");
+      return;
+    }
+
     try {
       setIsGenerating(true);
 
-      const res = await axios.post("http://localhost:5000/prep-plan", {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      await axios.post(apiUrl("/upload-jd"), formData);
+
+      const res = await axios.post(apiUrl("/prep-plan"), {
         days,
         hours,
         weaknesses: evaluation.weaknesses || [],
@@ -75,6 +87,22 @@ function PrepForm() {
 
           <div className="mt-8 space-y-4">
             <div>
+              <label className="field-label">Upload job description or resume</label>
+              <label className="field-input flex cursor-pointer items-center justify-between gap-3">
+                <span className={file ? "text-[var(--text-primary)]" : "subtle-copy"}>
+                  {file ? file.name : "Choose a PDF or DOCX file"}
+                </span>
+                <span className="status-pill status-pill--neutral whitespace-nowrap">Browse</span>
+                <input
+                  type="file"
+                  accept=".pdf,.docx"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <div>
               <label className="field-label">Days available</label>
               <input
                 value={days}
@@ -99,11 +127,11 @@ function PrepForm() {
             </button>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="panel-soft rounded-[1.3rem] p-4">
-              <p className="text-sm muted-copy">Current streak</p>
-              <p className="metric-value mt-2">{streak}</p>
-              <p className="text-sm subtle-copy mt-2">Keep finishing full study days to grow it.</p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="panel-soft rounded-[1.3rem] p-4">
+                <p className="text-sm muted-copy">Current streak</p>
+                <p className="metric-value mt-2">{streak}</p>
+                <p className="text-sm subtle-copy mt-2">Keep finishing full study days to grow it.</p>
             </div>
 
             <div className="panel-soft rounded-[1.3rem] p-4">
@@ -123,6 +151,14 @@ function PrepForm() {
                   <span className="text-sm subtle-copy">Complete an interview report to personalize the plan.</span>
                 )}
               </div>
+            </div>
+
+            <div className="panel-soft rounded-[1.3rem] p-4">
+              <p className="text-sm muted-copy">Plan inputs</p>
+              <p className="mt-2 text-sm subtle-copy">
+                We use your uploaded JD or resume together with your interview weaknesses and improvement areas
+                to generate the study plan.
+              </p>
             </div>
           </div>
         </aside>

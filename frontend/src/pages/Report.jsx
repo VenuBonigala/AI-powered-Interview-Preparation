@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import AppShell from "../components/AppShell";
 import ScoreGauge from "../components/ScoreGauge";
+import { saveInterviewToHistory, safeJsonParse } from "../utils/interviewHistory";
+import { apiUrl } from "../config";
 
 function getQuestionTag(question = "") {
   if (question.includes("RAG")) return "RAG";
@@ -37,20 +39,20 @@ function getScoreTone(score) {
 function Report() {
   const navigate = useNavigate();
   const [evaluation, setEvaluation] = useState(
-    JSON.parse(localStorage.getItem("evaluation") || "null"),
+    safeJsonParse(localStorage.getItem("evaluation"), null),
   );
   const [isLoading, setIsLoading] = useState(!evaluation);
 
-  const questions = useMemo(() => JSON.parse(localStorage.getItem("questions") || "[]"), []);
-  const answers = useMemo(() => JSON.parse(localStorage.getItem("answers") || "[]"), []);
-  const ideals = useMemo(() => JSON.parse(localStorage.getItem("ideals") || "[]"), []);
+  const questions = useMemo(() => safeJsonParse(localStorage.getItem("questions"), []), []);
+  const answers = useMemo(() => safeJsonParse(localStorage.getItem("answers"), []), []);
+  const ideals = useMemo(() => safeJsonParse(localStorage.getItem("ideals"), []), []);
 
   useEffect(() => {
     const fetchEvaluation = async () => {
       if (evaluation || !questions.length) return;
 
       try {
-        const res = await axios.post("http://localhost:5000/evaluate", {
+        const res = await axios.post(apiUrl("/evaluate"), {
           questions,
           answers,
           ideals,
@@ -59,6 +61,7 @@ function Report() {
         const parsed = JSON.parse(res.data.evaluation);
         setEvaluation(parsed);
         localStorage.setItem("evaluation", JSON.stringify(parsed));
+        saveInterviewToHistory({ evaluation: parsed, questions, answers });
       } catch {
         setEvaluation(null);
       } finally {
@@ -68,6 +71,12 @@ function Report() {
 
     fetchEvaluation();
   }, [answers, evaluation, ideals, questions]);
+
+  useEffect(() => {
+    if (evaluation) {
+      saveInterviewToHistory({ evaluation, questions, answers });
+    }
+  }, [answers, evaluation, questions]);
 
   if (isLoading) {
     return (
