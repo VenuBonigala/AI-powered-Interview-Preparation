@@ -6,8 +6,9 @@ import os
 import json
 import re
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
 import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 load_dotenv()
 
@@ -19,8 +20,6 @@ client = OpenAI(
     base_url=OPENAI_BASE_URL,
     api_key=OPENAI_API_KEY
 )
-
-embed_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 app = FastAPI()
 
@@ -159,12 +158,15 @@ Return STRICT JSON ONLY:
 
 
 def similarity_score(answer, ideal):
-    emb1 = embed_model.encode([answer])[0]
-    emb2 = embed_model.encode([ideal])[0]
+    if not answer or not ideal:
+        return 0.0
 
-    score = np.dot(emb1, emb2) / (
-        np.linalg.norm(emb1) * np.linalg.norm(emb2)
-    )
+    vectorizer = TfidfVectorizer(stop_words="english")
+    vectors = vectorizer.fit_transform([answer, ideal])
+    score = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
+
+    if np.isnan(score):
+        return 0.0
 
     return float(score)
 
